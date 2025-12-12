@@ -294,64 +294,13 @@
   // --- Helpers ---
   const todayISO = () => new Date().toISOString().slice(0,10);
 
-  // --- Compatibility: migrate old Spanish labels (v1) to English labels (this version) ---
-  const ACTIVITY_ALIASES = {
-    "Familia": "Family",
-    "Trabajo/Colegio": "School/work",
-    "Relación": "Relationship",
-    "Amigos": "Friends/colleagues",
-    "Salud": "Health",
-    "Chill": "Relaxing",
-    "Ejercicio": "Exercise"
-    // Hobbies stays the same; Sleep didn't exist before.
-  };
-
-  const EMOTION_ALIASES = {
-    "Feliz": "Happy",
-    "Bien": "Good",
-    "Cansado/Neutral": "Bored/tired/neutral",
-    "Estresado": "Stressed",
-    "Enfadado": "Angry/ pissed",
-    "Ansioso": "Anxious",
-    "Triste": "Down"
-    // Awkward stays the same; Confused/thoughtful didn't exist before.
-  };
-
-  function normalizeList(list, aliases, allowedSet) {
-    const out = [];
-    for (const raw of (list || [])) {
-      const mapped = aliases[raw] || raw;
-      if (allowedSet.has(mapped) && !out.includes(mapped)) out.push(mapped);
-    }
-    return out;
-  }
-
-
   function loadAll() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     try {
       const data = JSON.parse(raw);
-      const entries = Array.isArray(data) ? data : [];
-      const actSet = new Set(ACTIVITIES);
-      const emoSet = new Set(EMOTIONS);
-
-      // migrate/normalize in-memory (Spanish -> English), keep unknowns out
-      let changed = false;
-      for (const e of entries) {
-        const a0 = e.activities || [];
-        const e0 = e.emotions || [];
-        const a1 = normalizeList(a0, ACTIVITY_ALIASES, actSet);
-        const e1 = normalizeList(e0, EMOTION_ALIASES, emoSet);
-        if (JSON.stringify(a0) !== JSON.stringify(a1)) { e.activities = a1; changed = true; }
-        if (JSON.stringify(e0) !== JSON.stringify(e1)) { e.emotions = e1; changed = true; }
-      }
-      if (changed) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-      }
-      return entries;
+      return Array.isArray(data) ? data : [];
     } catch { return []; }
-  } catch { return []; }
   }
   function saveAll(entries) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
@@ -378,67 +327,19 @@
     return str;
   }
   function entriesToCSV(entries) {
-    // Requested "wide" CSV format (0/1 columns for each activity/emotion)
-    const header = [
-      "Full_Date","Grade",
-      "Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise",
-      "Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down",
-      "Título","Entrada"
-    ];
-
-    // Column-to-label mapping (because some UI labels include slashes)
-    const actColToLabel = {
-      "Family": "Family",
-      "School": "School/work",
-      "Relationship": "Relationship",
-      "Friends": "Friends/colleagues",
-      "Health": "Health",
-      "Hobbies": "Hobbies",
-      "Sleep": "Sleep",
-      "Relaxing": "Relaxing",
-      "Exercise": "Exercise"
-    };
-    const emoColToLabel = {
-      "Happy": "Happy",
-      "Good": "Good",
-      "Confused/thoughtful": "Confused/thoughtful",
-      "Bored/tired/neutral": "Bored/tired/neutral",
-      "Awkward": "Awkward",
-      "Stressed": "Stressed",
-      "Angry": "Angry/ pissed",
-      "Anxious": "Anxious",
-      "Down": "Down"
-    };
-
+    const header = ["date","title","score","activities","emotions","text","updatedAt"];
     const lines = [header.join(",")];
-
     for (const e of entries) {
-      const acts = new Set(e.activities || []);
-      const emos = new Set(e.emotions || []);
-
-      const row = [];
-      row.push(escapeCSV(e.date || ""));           // Full_Date
-      row.push(escapeCSV(e.score ?? ""));          // Grade
-
-      // Activities (0/1)
-      for (const col of ["Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise"]) {
-        row.push(acts.has(actColToLabel[col]) ? "1" : "0");
-      }
-
-      // Emotions (0/1)
-      for (const col of ["Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down"]) {
-        row.push(emos.has(emoColToLabel[col]) ? "1" : "0");
-      }
-
-      // Title / Entry
-      row.push(escapeCSV(e.title ?? ""));          // Título
-      row.push(escapeCSV(e.text ?? ""));           // Entrada
-
-      lines.push(row.join(","));
+      lines.push([
+        escapeCSV(e.date),
+        escapeCSV(e.title ?? ""),
+        escapeCSV(e.score ?? ""),
+        escapeCSV((e.activities ?? []).join(";")),
+        escapeCSV((e.emotions ?? []).join(";")),
+        escapeCSV(e.text ?? ""),
+        escapeCSV(e.updatedAt ?? "")
+      ].join(","));
     }
-
-    return lines.join("\n");
-  }
     return lines.join("\n");
   }
   function downloadText(filename, content, mime) {
@@ -505,8 +406,8 @@
       title: elTitle.value.trim(),
       text: elText.value,
       score: Number(elScore.value),
-      activities: normalizeList(readChecks(elActivities), ACTIVITY_ALIASES, new Set(ACTIVITIES)),
-      emotions: normalizeList(readChecks(elEmotions), EMOTION_ALIASES, new Set(EMOTIONS)),
+      activities: readChecks(elActivities),
+      emotions: readChecks(elEmotions),
       updatedAt: new Date().toISOString()
     };
   }
@@ -643,8 +544,8 @@
           title: String(e.title ?? ""),
           text: String(e.text ?? ""),
           score: (() => { const n = Number(e.score ?? 5.0); return Number.isFinite(n) ? n : 5.0; })(),
-          activities: normalizeList(Array.isArray(e.activities) ? e.activities.map(String) : [], ACTIVITY_ALIASES, new Set(ACTIVITIES)),
-          emotions: normalizeList(Array.isArray(e.emotions) ? e.emotions.map(String) : [], EMOTION_ALIASES, new Set(EMOTIONS)),
+          activities: Array.isArray(e.activities) ? e.activities.map(String) : [],
+          emotions: Array.isArray(e.emotions) ? e.emotions.map(String) : [],
           updatedAt: String(e.updatedAt ?? new Date().toISOString())
         });
       }
