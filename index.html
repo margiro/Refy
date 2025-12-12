@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Journal (móvil-first)</title>
+  <style>
+    :root { --bg:#0b0f19; --card:#121a2a; --muted:#93a4c7; --txt:#e9eefc; --accent:#7aa2ff; --danger:#ff6b6b; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 700px at 20% 10%, #172446, transparent), var(--bg);
+      color: var(--txt);
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 22px; }
+    header { display:flex; gap:12px; align-items:baseline; justify-content:space-between; flex-wrap:wrap; }
+    h1 { margin: 0; font-size: 20px; letter-spacing: .2px; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .grid { display:grid; grid-template-columns: 1.2fr .8fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: color-mix(in oklab, var(--card), black 8%); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px; padding: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+    .row { display:flex; gap: 10px; align-items:center; flex-wrap:wrap; }
+    label { font-size: 12px; color: var(--muted); display:block; margin-bottom: 6px; }
+    input[type="text"], input[type="date"], textarea {
+      width: 100%; background: rgba(255,255,255,.06); color: var(--txt);
+      border: 1px solid rgba(255,255,255,.10); border-radius: 12px; padding: 10px 12px;
+      outline: none;
+    }
+    textarea { min-height: 260px; resize: vertical; line-height: 1.4; }
+    input:focus, textarea:focus { border-color: color-mix(in oklab, var(--accent), white 10%); box-shadow: 0 0 0 3px rgba(122,162,255,.18); }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.08);
+      color: var(--txt);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .05s ease, background .15s ease;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .btn:hover { background: rgba(255,255,255,.12); }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: rgba(122,162,255,.22); border-color: rgba(122,162,255,.35); }
+    .btn.primary:hover { background: rgba(122,162,255,.28); }
+    .btn.danger { background: rgba(255,107,107,.18); border-color: rgba(255,107,107,.32); }
+    .btn.danger:hover { background: rgba(255,107,107,.24); }
+
+    .pill { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.10); color: var(--muted); }
+    .status { color: var(--muted); font-size: 12px; }
+
+    .checkgrid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .check {
+      display:flex; align-items:center; gap: 8px; padding: 8px 10px;
+      border-radius: 12px; border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.05);
+      user-select: none;
+    }
+    .check input { transform: scale(1.05); }
+    .small { font-size: 12px; color: var(--muted); }
+
+    .list { display:flex; flex-direction:column; gap: 8px; margin-top: 10px; }
+    .item {
+      display:flex; justify-content:space-between; gap: 10px; align-items:center;
+      padding: 10px 12px; border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.05);
+      cursor: pointer;
+    }
+    .item:hover { background: rgba(255,255,255,.08); }
+    .item .left { display:flex; flex-direction:column; gap: 2px; min-width: 0; }
+    .item .date { font-weight: 700; font-size: 13px; }
+    .item .title { font-size: 12px; color: var(--muted); white-space: nowrap; overflow:hidden; text-overflow: ellipsis; max-width: 340px; }
+    .item .score { font-size: 12px; }
+    .hr { height: 1px; background: rgba(255,255,255,.08); margin: 12px 0; border: 0; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  
+    /* --- Mobile-first tweaks --- */
+    .grid { grid-template-columns: 1fr; }
+    textarea { min-height: 42vh; }
+    .btn { padding: 12px 14px; font-size: 14px; border-radius: 14px; }
+    .check { min-height: 44px; }
+    .checkgrid { grid-template-columns: 1fr; }
+    @media (min-width: 520px) { .checkgrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+    /* Sidebar as a slide-over drawer on mobile */
+    .sidebar {
+      position: fixed;
+      inset: 0;
+      height: 100dvh;
+      z-index: 50;
+      transform: translateX(105%);
+      transition: transform .18s ease;
+      border-radius: 0;
+      padding: 14px;
+      overflow: auto;
+      background: color-mix(in oklab, var(--card), black 10%);
+      backdrop-filter: blur(6px);
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    .sidebarHeader { position: sticky; top: 0; z-index: 2; padding-bottom: 10px; background: color-mix(in oklab, var(--card), black 10%); }
+    .mobileOnly { display: inline-flex; }
+    .desktopOnly { display: none; }
+
+    /* Sticky editor topbar on mobile */
+    .topbar {
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      padding: 10px;
+      border-radius: 14px;
+      background: color-mix(in oklab, var(--card), black 12%);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    /* Desktop layout */
+    @media (min-width: 900px) {
+      .grid { grid-template-columns: 1.2fr .8fr; }
+      .sidebar {
+        position: static;
+        inset: auto;
+        height: auto;
+        transform: none;
+        transition: none;
+        border-radius: 16px;
+        padding: 14px;
+        overflow: visible;
+        background: color-mix(in oklab, var(--card), black 8%);
+        backdrop-filter: none;
+      }
+      .mobileOnly { display: none; }
+      .desktopOnly { display: inline-flex; }
+      .topbar { position: static; padding: 0; border: none; box-shadow: none; background: transparent; }
+      textarea { min-height: 260px; }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Journal local</h1>
+        <div class="sub">Texto + nota + actividades + emociones · Guardado en <span class="mono">localStorage</span></div>
+      </div>
+      <div class="row">
+        <button class="btn mobileOnly" id="btnOpenList" style="padding:8px 12px;">Entradas</button>
+        <span class="pill" id="pillCount">0 entradas</span>
+        <span class="pill" id="pillAvg">media —</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Editor -->
+      <section class="card">
+        <div class="row topbar" style="justify-content:space-between; align-items:flex-end;">
+          <div style="min-width:240px; flex:1;">
+            <label for="date">Fecha</label>
+            <input id="date" type="date" />
+          </div>
+          <div class="row" style="gap:8px;">
+            <button class="btn primary" id="btnSave">Guardar</button>
+            <button class="btn danger" id="btnDelete">Borrar día</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 12px;">
+          <label for="title">Título del día</label>
+          <input id="title" type="text" placeholder="Ej: Día tranquilo, paseo, curro intenso..." />
+        </div>
+
+        <div style="margin-top: 12px;">
+          <label for="text">Texto</label>
+          <textarea id="text" placeholder="Escribe aquí..."></textarea>
+        </div>
+
+        <div class="row" style="margin-top: 12px; align-items:flex-end;">
+          <div style="flex:1; min-width:240px;">
+            <label for="score">Puntuación (1–10): <span id="scoreLabel" class="mono">5.0</span></label>
+            <input id="score" type="range" min="1" max="10" step="0.1" value="5.0" style="width:100%;" />
+          </div>
+          <div class="status" id="status">—</div>
+        </div>
+
+        <hr class="hr" />
+
+        <div class="row" style="gap:16px; align-items:flex-start;">
+          <div style="flex:1; min-width:260px;">
+            <label>Actividades</label>
+            <div class="checkgrid" id="activities"></div>
+          </div>
+          <div style="flex:1; min-width:260px;">
+            <label>Emociones</label>
+            <div class="checkgrid" id="emotions"></div>
+          </div>
+        </div>
+
+        <hr class="hr" />
+
+        <div class="row">
+          <button class="btn" id="btnExportCSV">Exportar CSV</button>
+          <button class="btn" id="btnExportJSON">Exportar JSON</button>
+          <label class="btn" style="display:inline-flex; align-items:center; gap:8px;">
+            Importar JSON
+            <input id="importJSON" type="file" accept="application/json" style="display:none;">
+          </label>
+          <button class="btn danger" id="btnWipe">Borrar TODO</button>
+          <span class="small">Consejo: exporta JSON de vez en cuando como copia de seguridad.</span>
+        </div>
+      </section>
+
+      <!-- Lista -->
+      <aside class="card sidebar" id="sidebar">
+        <div class="sidebarHeader">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <div style="font-weight:800;">Entradas</div>
+            <div class="small">Click para cargar una fecha</div>
+          </div>
+          <div class="row" style="gap:8px;">
+            <input id="search" type="text" placeholder="Buscar..." style="max-width: 220px;" />
+            <button class="btn mobileOnly" id="btnCloseList" style="padding:8px 12px;">Cerrar</button>
+          </div>
+        </div>
+        </div>
+
+        <div class="list" id="list"></div>
+      </aside>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const STORAGE_KEY = "journal:v1";
+
+  const ACTIVITIES = [
+    "Family","School/work","Relationship","Friends/colleagues","Health","Hobbies","Sleep","Relaxing","Exercise"
+  ];
+  const EMOTIONS = [
+    "Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry/ pissed","Anxious","Down"
+  ];
+
+  // --- DOM ---
+  const elDate = document.getElementById("date");
+  const elTitle = document.getElementById("title");
+  const elText = document.getElementById("text");
+  const elScore = document.getElementById("score");
+  const elScoreLabel = document.getElementById("scoreLabel");
+  const elStatus = document.getElementById("status");
+  const elList = document.getElementById("list");
+  const elSearch = document.getElementById("search");
+  const pillCount = document.getElementById("pillCount");
+  const pillAvg = document.getElementById("pillAvg");
+
+  const btnSave = document.getElementById("btnSave");
+  const btnDelete = document.getElementById("btnDelete");
+  const btnExportCSV = document.getElementById("btnExportCSV");
+  const btnExportJSON = document.getElementById("btnExportJSON");
+  const importJSON = document.getElementById("importJSON");
+  const btnWipe = document.getElementById("btnWipe");
+
+  const sidebar = document.getElementById("sidebar");
+  const btnOpenList = document.getElementById("btnOpenList");
+  const btnCloseList = document.getElementById("btnCloseList");
+
+  function isMobile() {
+    return window.matchMedia("(max-width: 899px)").matches;
+  }
+  function openList() {
+    if (!sidebar) return;
+    sidebar.classList.add("open");
+    setTimeout(() => { try { elSearch?.focus(); } catch {} }, 50);
+  }
+  function closeList() {
+    if (!sidebar) return;
+    sidebar.classList.remove("open");
+  }
+
+  btnOpenList?.addEventListener("click", openList);
+  btnCloseList?.addEventListener("click", closeList);
+
+  window.addEventListener("resize", () => {
+    if (!sidebar) return;
+    if (!isMobile()) sidebar.classList.remove("open");
+  });
+
+
+  // --- Helpers ---
+  const todayISO = () => new Date().toISOString().slice(0,10);
+
+  // --- Compatibility: migrate old Spanish labels (v1) to English labels (this version) ---
+  const ACTIVITY_ALIASES = {
+    "Familia": "Family",
+    "Trabajo/Colegio": "School/work",
+    "Relación": "Relationship",
+    "Amigos": "Friends/colleagues",
+    "Salud": "Health",
+    "Chill": "Relaxing",
+    "Ejercicio": "Exercise"
+    // Hobbies stays the same; Sleep didn't exist before.
+  };
+
+  const EMOTION_ALIASES = {
+    "Feliz": "Happy",
+    "Bien": "Good",
+    "Cansado/Neutral": "Bored/tired/neutral",
+    "Estresado": "Stressed",
+    "Enfadado": "Angry/ pissed",
+    "Ansioso": "Anxious",
+    "Triste": "Down"
+    // Awkward stays the same; Confused/thoughtful didn't exist before.
+  };
+
+  function normalizeList(list, aliases, allowedSet) {
+    const out = [];
+    for (const raw of (list || [])) {
+      const mapped = aliases[raw] || raw;
+      if (allowedSet.has(mapped) && !out.includes(mapped)) out.push(mapped);
+    }
+    return out;
+  }
+
+
+  function loadAll() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    try {
+      const data = JSON.parse(raw);
+      const entries = Array.isArray(data) ? data : [];
+      const actSet = new Set(ACTIVITIES);
+      const emoSet = new Set(EMOTIONS);
+
+      // migrate/normalize in-memory (Spanish -> English), keep unknowns out
+      let changed = false;
+      for (const e of entries) {
+        const a0 = e.activities || [];
+        const e0 = e.emotions || [];
+        const a1 = normalizeList(a0, ACTIVITY_ALIASES, actSet);
+        const e1 = normalizeList(e0, EMOTION_ALIASES, emoSet);
+        if (JSON.stringify(a0) !== JSON.stringify(a1)) { e.activities = a1; changed = true; }
+        if (JSON.stringify(e0) !== JSON.stringify(e1)) { e.emotions = e1; changed = true; }
+      }
+      if (changed) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      }
+      return entries;
+    } catch { return []; }
+  } catch { return []; }
+  }
+  function saveAll(entries) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  }
+  function getEntryByDate(entries, date) {
+    return entries.find(e => e.date === date) || null;
+  }
+  function upsertEntry(entries, entry) {
+    const idx = entries.findIndex(e => e.date === entry.date);
+    if (idx === -1) entries.push(entry);
+    else entries[idx] = entry;
+    // orden por fecha descendente
+    entries.sort((a,b) => b.date.localeCompare(a.date));
+    return entries;
+  }
+  function deleteEntry(entries, date) {
+    return entries.filter(e => e.date !== date);
+  }
+
+  function escapeCSV(value) {
+    if (value == null) return "";
+    const str = String(value);
+    if (/[",\n]/.test(str)) return '"' + str.replace(/"/g,'""') + '"';
+    return str;
+  }
+  function entriesToCSV(entries) {
+    // Requested "wide" CSV format (0/1 columns for each activity/emotion)
+    const header = [
+      "Full_Date","Grade",
+      "Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise",
+      "Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down",
+      "Título","Entrada"
+    ];
+
+    // Column-to-label mapping (because some UI labels include slashes)
+    const actColToLabel = {
+      "Family": "Family",
+      "School": "School/work",
+      "Relationship": "Relationship",
+      "Friends": "Friends/colleagues",
+      "Health": "Health",
+      "Hobbies": "Hobbies",
+      "Sleep": "Sleep",
+      "Relaxing": "Relaxing",
+      "Exercise": "Exercise"
+    };
+    const emoColToLabel = {
+      "Happy": "Happy",
+      "Good": "Good",
+      "Confused/thoughtful": "Confused/thoughtful",
+      "Bored/tired/neutral": "Bored/tired/neutral",
+      "Awkward": "Awkward",
+      "Stressed": "Stressed",
+      "Angry": "Angry/ pissed",
+      "Anxious": "Anxious",
+      "Down": "Down"
+    };
+
+    const lines = [header.join(",")];
+
+    for (const e of entries) {
+      const acts = new Set(e.activities || []);
+      const emos = new Set(e.emotions || []);
+
+      const row = [];
+      row.push(escapeCSV(e.date || ""));           // Full_Date
+      row.push(escapeCSV(e.score ?? ""));          // Grade
+
+      // Activities (0/1)
+      for (const col of ["Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise"]) {
+        row.push(acts.has(actColToLabel[col]) ? "1" : "0");
+      }
+
+      // Emotions (0/1)
+      for (const col of ["Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down"]) {
+        row.push(emos.has(emoColToLabel[col]) ? "1" : "0");
+      }
+
+      // Title / Entry
+      row.push(escapeCSV(e.title ?? ""));          // Título
+      row.push(escapeCSV(e.text ?? ""));           // Entrada
+
+      lines.push(row.join(","));
+    }
+
+    return lines.join("\n");
+  }
+    return lines.join("\n");
+  }
+  function downloadText(filename, content, mime) {
+    const blob = new Blob([content], { type: mime || "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function setStatus(msg) {
+    elStatus.textContent = msg;
+    clearTimeout(setStatus._t);
+    setStatus._t = setTimeout(() => { elStatus.textContent = "—"; }, 1500);
+  }
+
+  // --- Checklist render ---
+  function renderChecks(container, items, prefix) {
+    container.innerHTML = "";
+    for (const item of items) {
+      const id = `${prefix}:${item}`;
+      const wrap = document.createElement("label");
+      wrap.className = "check";
+      wrap.innerHTML = `<input type="checkbox" data-value="${item}" id="${id}"><span>${item}</span>`;
+      container.appendChild(wrap);
+    }
+  }
+
+  const elActivities = document.getElementById("activities");
+  const elEmotions = document.getElementById("emotions");
+  renderChecks(elActivities, ACTIVITIES, "act");
+  renderChecks(elEmotions, EMOTIONS, "emo");
+
+  function readChecks(container) {
+    return [...container.querySelectorAll("input[type=checkbox]:checked")]
+      .map(cb => cb.getAttribute("data-value"));
+  }
+  function setChecks(container, values) {
+    const set = new Set(values || []);
+    for (const cb of container.querySelectorAll("input[type=checkbox]")) {
+      cb.checked = set.has(cb.getAttribute("data-value"));
+    }
+  }
+
+  // --- Editor load/save ---
+  function loadIntoEditor(date) {
+    const entries = loadAll();
+    const e = getEntryByDate(entries, date);
+
+    elDate.value = date;
+    elTitle.value = e?.title ?? "";
+    elText.value = e?.text ?? "";
+    elScore.value = String(e?.score ?? 5.0);
+    elScoreLabel.textContent = Number(elScore.value).toFixed(1);
+    setChecks(elActivities, e?.activities ?? []);
+    setChecks(elEmotions, e?.emotions ?? []);
+    setStatus(e ? "Cargado" : "Nuevo día");
+  }
+
+  function currentEditorEntry() {
+    return {
+      date: elDate.value,
+      title: elTitle.value.trim(),
+      text: elText.value,
+      score: Number(elScore.value),
+      activities: normalizeList(readChecks(elActivities), ACTIVITY_ALIASES, new Set(ACTIVITIES)),
+      emotions: normalizeList(readChecks(elEmotions), EMOTION_ALIASES, new Set(EMOTIONS)),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function saveFromEditor() {
+    const date = elDate.value;
+    if (!date) return;
+
+    const entry = currentEditorEntry();
+    const entries = loadAll();
+    upsertEntry(entries, entry);
+    saveAll(entries);
+    renderList();
+    renderPills();
+    setStatus("Guardado ✓");
+  }
+
+  function deleteCurrentDay() {
+    const date = elDate.value;
+    if (!date) return;
+    const entries = loadAll();
+    const before = entries.length;
+    const next = deleteEntry(entries, date);
+    if (next.length === before) { setStatus("No existía"); return; }
+    saveAll(next);
+    loadIntoEditor(date); // se queda en esa fecha pero vacío
+    renderList();
+    renderPills();
+    setStatus("Borrado");
+  }
+
+  // Auto-guardado con debounce
+  function debounce(fn, ms) {
+    let t = null;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
+  const autosave = debounce(() => saveFromEditor(), 500);
+
+  // --- List render ---
+  function renderList() {
+    const q = elSearch.value.trim().toLowerCase();
+    const entries = loadAll();
+
+    const filtered = !q ? entries : entries.filter(e => {
+      const hay = [
+        e.date, e.title, e.text,
+        (e.activities||[]).join(" "),
+        (e.emotions||[]).join(" "),
+        String(e.score ?? "")
+      ].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+
+    elList.innerHTML = "";
+    if (filtered.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "small";
+      empty.style.padding = "10px 6px";
+      empty.textContent = q ? "Nada coincide con la búsqueda." : "Aún no hay entradas.";
+      elList.appendChild(empty);
+      return;
+    }
+
+    for (const e of filtered.slice(0, 120)) {
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div class="left">
+          <div class="date">${e.date}</div>
+          <div class="title">${(e.title || "(Sin título)")}</div>
+        </div>
+        <div class="score pill">★ ${Number.isFinite(Number(e.score)) ? Number(e.score).toFixed(1) : "—"}</div>
+      `;
+      item.addEventListener("click", () => { loadIntoEditor(e.date); if (isMobile()) closeList(); });
+      elList.appendChild(item);
+    }
+  }
+
+  function renderPills() {
+    const entries = loadAll();
+    pillCount.textContent = `${entries.length} entradas`;
+
+    if (!entries.length) { pillAvg.textContent = "media —"; return; }
+    const scores = entries.map(e => Number(e.score)).filter(n => Number.isFinite(n));
+    const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length) : NaN;
+    pillAvg.textContent = Number.isFinite(avg) ? `media ${avg.toFixed(2)}` : "media —";
+  }
+
+  // --- Events ---
+  elScore.addEventListener("input", () => { elScoreLabel.textContent = Number(elScore.value).toFixed(1); autosave(); });
+  elTitle.addEventListener("input", autosave);
+  elText.addEventListener("input", autosave);
+  elActivities.addEventListener("change", autosave);
+  elEmotions.addEventListener("change", autosave);
+
+  elDate.addEventListener("change", () => loadIntoEditor(elDate.value));
+
+  btnSave.addEventListener("click", saveFromEditor);
+  btnDelete.addEventListener("click", deleteCurrentDay);
+
+  elSearch.addEventListener("input", renderList);
+
+  btnExportCSV.addEventListener("click", () => {
+    const entries = loadAll();
+    const csv = entriesToCSV(entries);
+    downloadText("journal.csv", csv, "text/csv;charset=utf-8;");
+    setStatus("CSV exportado");
+  });
+
+  btnExportJSON.addEventListener("click", () => {
+    const entries = loadAll();
+    downloadText("journal.json", JSON.stringify(entries, null, 2), "application/json;charset=utf-8;");
+    setStatus("JSON exportado");
+  });
+
+  importJSON.addEventListener("change", async (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const incoming = JSON.parse(text);
+      if (!Array.isArray(incoming)) throw new Error("Formato no válido (esperaba un array).");
+
+      // Merge por date (lo importado sobrescribe esa fecha)
+      const existing = loadAll();
+      const map = new Map(existing.map(e => [e.date, e]));
+      for (const e of incoming) {
+        if (!e?.date) continue;
+        map.set(e.date, {
+          date: String(e.date),
+          title: String(e.title ?? ""),
+          text: String(e.text ?? ""),
+          score: (() => { const n = Number(e.score ?? 5.0); return Number.isFinite(n) ? n : 5.0; })(),
+          activities: normalizeList(Array.isArray(e.activities) ? e.activities.map(String) : [], ACTIVITY_ALIASES, new Set(ACTIVITIES)),
+          emotions: normalizeList(Array.isArray(e.emotions) ? e.emotions.map(String) : [], EMOTION_ALIASES, new Set(EMOTIONS)),
+          updatedAt: String(e.updatedAt ?? new Date().toISOString())
+        });
+      }
+      const merged = [...map.values()].sort((a,b)=>b.date.localeCompare(a.date));
+      saveAll(merged);
+      renderList();
+      renderPills();
+      loadIntoEditor(elDate.value || todayISO());
+      setStatus("Importado ✓");
+    } catch (err) {
+      alert("No se pudo importar JSON: " + (err?.message || err));
+    } finally {
+      ev.target.value = "";
+    }
+  });
+
+  btnWipe.addEventListener("click", () => {
+    const ok = confirm("Esto borra TODO el diario local (localStorage). ¿Seguro?");
+    if (!ok) return;
+    localStorage.removeItem(STORAGE_KEY);
+    loadIntoEditor(elDate.value || todayISO());
+    renderList();
+    renderPills();
+    setStatus("Todo borrado");
+  });
+
+  // --- Init ---
+  elDate.value = todayISO();
+  loadIntoEditor(elDate.value);
+  renderList();
+  renderPills();
+})();
+</script>
+</body>
+</html>
