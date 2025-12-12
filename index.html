@@ -326,20 +326,64 @@
     if (/[",\n]/.test(str)) return '"' + str.replace(/"/g,'""') + '"';
     return str;
   }
+
   function entriesToCSV(entries) {
-    const header = ["date","title","score","activities","emotions","text","updatedAt"];
+    // Wide CSV format (0/1 columns for each activity & emotion)
+    const header = [
+      "Full_Date","Grade",
+      "Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise",
+      "Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down",
+      "Título","Entrada"
+    ];
+
     const lines = [header.join(",")];
+
+    const actColToLabel = {
+      "Family": "Family",
+      "School": "School/work",
+      "Relationship": "Relationship",
+      "Friends": "Friends/colleagues",
+      "Health": "Health",
+      "Hobbies": "Hobbies",
+      "Sleep": "Sleep",
+      "Relaxing": "Relaxing",
+      "Exercise": "Exercise"
+    };
+
+    const emoColToLabel = {
+      "Happy": "Happy",
+      "Good": "Good",
+      "Confused/thoughtful": "Confused/thoughtful",
+      "Bored/tired/neutral": "Bored/tired/neutral",
+      "Awkward": "Awkward",
+      "Stressed": "Stressed",
+      "Angry": "Angry/ pissed",
+      "Anxious": "Anxious",
+      "Down": "Down"
+    };
+
     for (const e of entries) {
-      lines.push([
-        escapeCSV(e.date),
-        escapeCSV(e.title ?? ""),
-        escapeCSV(e.score ?? ""),
-        escapeCSV((e.activities ?? []).join(";")),
-        escapeCSV((e.emotions ?? []).join(";")),
-        escapeCSV(e.text ?? ""),
-        escapeCSV(e.updatedAt ?? "")
-      ].join(","));
+      const acts = new Set(e.activities || []);
+      const emos = new Set(e.emotions || []);
+
+      const row = [];
+      row.push(escapeCSV(e.date || ""));
+      row.push(escapeCSV(e.score ?? ""));
+
+      for (const col of ["Family","School","Relationship","Friends","Health","Hobbies","Sleep","Relaxing","Exercise"]) {
+        row.push(acts.has(actColToLabel[col]) ? "1" : "0");
+      }
+
+      for (const col of ["Happy","Good","Confused/thoughtful","Bored/tired/neutral","Awkward","Stressed","Angry","Anxious","Down"]) {
+        row.push(emos.has(emoColToLabel[col]) ? "1" : "0");
+      }
+
+      row.push(escapeCSV(e.title ?? ""));
+      row.push(escapeCSV(e.text ?? ""));
+
+      lines.push(row.join(","));
     }
+
     return lines.join("\n");
   }
   function downloadText(filename, content, mime) {
