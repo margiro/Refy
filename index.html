@@ -445,11 +445,22 @@
   const scoreInput = document.getElementById("scoreInput");
   const scoreDisplay = document.getElementById("scoreDisplay");
 
+  // DEBUG: mostrar estado en pantalla
+  const statsLine = document.getElementById("statsLine");
+  function dbg(msg) {
+    console.log(msg);
+    if (statsLine) statsLine.textContent = msg;
+  }
+
   try {
+    dbg("Leyendo localStorage...");
     loadData();
+    dbg(`Datos leídos: ${entries.length} entradas. Renderizando...`);
     renderHome();
+    dbg(`${entries.length} entradas guardadas`);
   } catch(e) {
     console.error("Error al iniciar la app:", e);
+    if (statsLine) statsLine.textContent = "ERROR: " + (e?.message || e);
     showCrashBanner(e);
   }
 
